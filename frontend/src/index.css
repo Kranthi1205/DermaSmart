@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root{
+  --bg:#F7F8FA;
+  --surface:#FFFFFF;
+  --primary:#0F766E;
+  --accent:#F97360;
+  --danger:#DC2626;
+}
+
+body{
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  background-color: var(--bg);
+  color: #0F172A;
+}
+
+@media (max-width: 640px){
+  .max-w-5xl{padding-left:1rem;padding-right:1rem}
+}
+
+@media print{
+  body{background: #fff; color:#000}
+  header, footer, nav, .no-print{display:none !important}
+  main{padding:0}
+}
+

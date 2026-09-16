@@ -1,0 +1,29 @@
+[
+  {
+    "name": "Gentle Daily Cleanser",
+    "price": 19.99,
+    "description": "Gentle non-stripping formula suitable for sensitive skin.",
+    "keyIngredients": ["Ceramides", "Glycerin"],
+    "bestFor": "Daily cleansing",
+    "useTime": "Morning and evening",
+    "image": "https://via.placeholder.com/300x200?text=Cleanser"
+  },
+  {
+    "name": "Broad Spectrum SPF 50",
+    "price": 24.99,
+    "description": "Lightweight sunscreen that protects against UVA/UVB.",
+    "keyIngredients": ["Zinc Oxide", "Niacinamide"],
+    "bestFor": "Sun protection",
+    "useTime": "Morning",
+    "image": "https://via.placeholder.com/300x200?text=SPF"
+  },
+  {
+    "name": "Hydrating Night Cream",
+    "price": 29.99,
+    "description": "Rich moisturizer to restore skin barrier overnight.",
+    "keyIngredients": ["Hyaluronic Acid", "Ceramides"],
+    "bestFor": "Hydration",
+    "useTime": "Evening",
+    "image": "https://via.placeholder.com/300x200?text=Night+Cream"
+  }
+]
