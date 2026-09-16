@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.local
+.env.*.local
+!.env.example
+**/__pycache__/
+*.pyc
+venv/
+.ipynb_checkpoints/
+backend/uploads/
+.vscode/*
+.idea
+.DS_Store
+*.log
