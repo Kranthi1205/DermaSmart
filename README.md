@@ -56,4 +56,4 @@ DermaSmart is an AI-powered educational tool and does not provide medical advice
 
 Credits:
 
-Based on DermaSmart by Ravi Kiran Reddy Bada (https://github.com/Ravikiranreddybada/dermasmart). UI redesigned by GitHub Copilot.
+Based on DermaSmart by Kranthi Kumar (https://github.com/Kranthi1205/DermaSmart). UI redesigned.
