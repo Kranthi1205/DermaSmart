@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
 import { motion } from 'framer-motion'
-import { Camera, ShieldCheck, Sparkles, BrainCircuit, ArrowRight } from 'lucide-react'
+import { Camera, ShieldCheck, BrainCircuit, ArrowRight } from 'lucide-react'
 import { AppNav } from '@/components/AppNav'
 import { Footer } from '@/components/Footer'
 import { Button } from '@/components/ui/button'
