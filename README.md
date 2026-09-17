@@ -1,7 +1,7 @@
 # DermaSmart
 
 AI-powered skin analysis application.
-Based on DermaSmart by Ravi Kiran Reddy Bada (https://github.com/Ravikiranreddybada/dermasmart). UI redesigned by Antigravity.
+Built by Kranthi Kumar (https://github.com/Kranthi1205/DermaSmart).
 
 ## Features
 - Smart Capture image quality gate
