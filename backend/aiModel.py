@@ -54,13 +54,13 @@ try:
         interpreter.allocate_tensors()
         input_details = interpreter.get_input_details()
         output_details = interpreter.get_output_details()
-        print("✅ TFLite model loaded successfully.")
+        print("[OK] TFLite model loaded successfully.")
     elif tflite is None:
-        print("⚠️  TFLite runtime not installed on this host. Local fallback mode enabled.")
+        print("[WARN] TFLite runtime not installed on this host. Local fallback mode enabled.")
     else:
-        print(f"⚠️  TFLite model not found at {MODEL_PATH}")
+        print(f"[WARN] TFLite model not found at {MODEL_PATH}")
 except Exception as e:
-    print(f"⚠️  Could not load TFLite model: {e}")
+    print(f"[WARN] Could not load TFLite model: {e}")
 
 
 def validate_face(image_bytes: bytes) -> dict:
@@ -112,7 +112,7 @@ def skin_analysis(image_bytes: bytes) -> dict:
     Returns {"condition": "<label>"} or {"error": "<message>"}
     """
     if interpreter is None:
-        print("⚠️  Running skin_analysis in local fallback mode (no TFLite interpreter loaded).")
+        print("[WARN] Running skin_analysis in local fallback mode (no TFLite interpreter loaded).")
         return {"condition": "Acne and Rosacea"}
 
     try:
