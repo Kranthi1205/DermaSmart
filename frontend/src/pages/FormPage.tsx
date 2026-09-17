@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { AlertCircle, ChevronRight } from 'lucide-react'
+import { AlertCircle, ChevronRight, User } from 'lucide-react'
 import { AppNav } from '@/components/AppNav'
 import { Footer } from '@/components/Footer'
 import { Stepper } from '@/components/Stepper'
 import { OptionPills } from '@/components/OptionPills'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Loader } from '@/components/Loader'
 import { analyzeSkin } from '@/lib/api'
 
@@ -15,7 +15,9 @@ const OPTIONS = ["Not at all", "Unlikely", "Somewhat", "Likely", "Definitely"]
 export default function FormPage() {
   const location = useLocation()
   const navigate = useNavigate()
-  
+
+  const [name, setName] = useState("")
+  const [age, setAge] = useState("")
   const [isOily, setIsOily] = useState("Not at all")
   const [isDry, setIsDry] = useState("Not at all")
   const [isIntensive, setIsIntensive] = useState("Not at all")
@@ -34,7 +36,7 @@ export default function FormPage() {
         <main className="flex-1 flex flex-col items-center justify-center p-4 text-center">
           <AlertCircle className="w-12 h-12 text-destructive mb-4" />
           <h2 className="text-xl font-bold mb-2">No photo found</h2>
-          <p className="text-muted-foreground mb-6">Please take a photo first to analyze your skin.</p>
+          <p className="text-muted-foreground mb-6">Please take or upload a photo first to analyze your skin.</p>
           <Button onClick={() => navigate('/camera')}>Go to Camera</Button>
         </main>
       </div>
@@ -48,6 +50,12 @@ export default function FormPage() {
   }, [isOily, isDry])
 
   const handleSubmit = async () => {
+    const parsedAge = age.trim() ? parseInt(age.trim(), 10) : 25
+    if (age.trim() && (isNaN(parsedAge) || parsedAge < 1 || parsedAge > 120)) {
+      setErrorMsg("Please enter a valid age between 1 and 120.")
+      return
+    }
+
     setIsSubmitting(true)
     setErrorMsg(null)
     setLoadingMsgIdx(0)
@@ -56,6 +64,8 @@ export default function FormPage() {
       const res = await analyzeSkin({
         image: imageFile,
         skinType,
+        name: name.trim() || undefined,
+        age: parsedAge,
       })
       navigate('/report', { state: { responseData: res } })
     } catch (err: any) {
@@ -95,6 +105,51 @@ export default function FormPage() {
           </div>
 
           <div className="space-y-6">
+            {/* Personal Info Card */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <User className="w-5 h-5 text-primary" />
+                  Personal Information
+                </CardTitle>
+                <CardDescription>
+                  Help our dermatological AI personalize advice for your name and age demographic.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="user-name" className="text-sm font-medium text-foreground">
+                      Full Name
+                    </label>
+                    <input
+                      id="user-name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. Alex Smith"
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="user-age" className="text-sm font-medium text-foreground">
+                      Age
+                    </label>
+                    <input
+                      id="user-age"
+                      type="number"
+                      min="1"
+                      max="120"
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      placeholder="e.g. 25"
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-muted-foreground"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">How oily does your skin feel throughout the day?</CardTitle>
