@@ -116,7 +116,7 @@ def _default_report(skin_condition: str, skin_type: str) -> dict:
         "products": [
             {
                 "name": "Gentle Daily Cleanser",
-                "price": 19.99,
+                "price": 349,
                 "description": f"Gentle non-stripping formula for {skin_type} skin",
                 "keyIngredients": ["Ceramides", "Glycerin"],
                 "bestFor": "Daily cleansing",
