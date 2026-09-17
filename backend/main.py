@@ -6,7 +6,7 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 
-from database import connect_db, close_db, get_db
+from database import connect_db, close_db, get_db, is_db_available
 from aiModel import skin_analysis, validate_face
 from gemini import get_personalized_skin_advice
 from routes import user, skin_analysis as skin_analysis_routes
@@ -91,30 +91,35 @@ async def analyze_skin(
                 age=age,
             )
 
-        # 4. Save to MongoDB
-        db = get_db()
+        # 5. Save to MongoDB only if available
+        analysis_id = None
+        if is_db_available():
+            db = get_db()
+            try:
+                # Upsert user
+                await db.users.update_one(
+                    {"email": email},
+                    {"$set": {"name": name, "skin_type": skin_type, "age": age, "email": email}},
+                    upsert=True,
+                )
 
-        # Upsert user
-        await db.users.update_one(
-            {"email": email},
-            {"$set": {"name": name, "skin_type": skin_type, "age": age, "email": email}},
-            upsert=True,
-        )
-
-        # Insert analysis record
-        analysis_doc = {
-            "user_email": email,
-            "skin_condition": skin_condition,
-            "derma_report": derma_report,
-            "image_filename": "in-memory-processed",
-            "created_at": datetime.utcnow(),
-        }
-        result = await db.skin_analyses.insert_one(analysis_doc)
+                # Insert analysis record
+                analysis_doc = {
+                    "user_email": email,
+                    "skin_condition": skin_condition,
+                    "derma_report": derma_report,
+                    "image_filename": "in-memory-processed",
+                    "created_at": datetime.utcnow(),
+                }
+                result = await db.skin_analyses.insert_one(analysis_doc)
+                analysis_id = str(result.inserted_id)
+            except Exception as db_err:
+                print(f"[WARN] DB write failed (non-fatal): {db_err}")
 
         # 6. Return response to frontend
         return {
             "status": "success",
-            "analysis_id": str(result.inserted_id),
+            "analysis_id": analysis_id,
             "user_data": {
                 "name": name,
                 "email": email,
@@ -134,4 +139,4 @@ async def analyze_skin(
 
 @app.get("/")
 def root():
-    return {"message": "DermaSmart API is running 🚀"}
+    return {"message": "DermaSmart API is running"}
