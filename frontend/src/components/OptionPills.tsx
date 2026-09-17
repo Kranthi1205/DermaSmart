@@ -1,25 +1,32 @@
-import React from 'react'
+import { cn } from "@/lib/utils"
 
-type Props = {
+interface OptionPillsProps {
   options: string[]
   value: string
-  onChange: (v:string)=>void
+  onChange: (val: string) => void
 }
 
-export default function OptionPills({ options, value, onChange }: Props){
+export function OptionPills({ options, value, onChange }: OptionPillsProps) {
   return (
-    <div role="radiogroup" className="flex gap-2 flex-wrap">
-      {options.map(opt => (
-        <button
-          key={opt}
-          role="radio"
-          aria-checked={value===opt}
-          onClick={()=>onChange(opt)}
-          className={`px-3 py-1 rounded-full border ${value===opt ? 'bg-primary text-white' : 'bg-white'}`}
-        >
-          {opt}
-        </button>
-      ))}
+    <div className="flex flex-wrap gap-2">
+      {options.map((opt) => {
+        const isSelected = value === opt
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onChange(opt)}
+            className={cn(
+              "rounded-full px-4 py-2 text-sm font-medium transition-colors border",
+              isSelected
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-foreground border-border hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            {opt}
+          </button>
+        )
+      })}
     </div>
   )
 }
