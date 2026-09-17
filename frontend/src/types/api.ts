@@ -1,4 +1,4 @@
-export type Product = {
+export interface SkincareProduct {
   name: string
   price: number
   description: string
@@ -7,19 +7,36 @@ export type Product = {
   useTime: string
 }
 
-export type DermaReport = {
+export interface DermaReport {
   overview: { condition: string }
-  routine: { morning: string[]; evening: string[] }
-  diet: { recommendations: string[] }
-  products: Product[]
+  routine: {
+    morning: string[]
+    evening: string[]
+  }
+  diet: {
+    recommendations: string[]
+  }
+  products: SkincareProduct[]
 }
 
-export type AnalyzeResponse = {
-  status: 'success' | 'error'
+export interface AnalyzeResponse {
+  status: "success" | "error"
   analysis_id?: string
-  user_data?: { name: string; email: string; skin_type: string; age: number }
+  user_data?: {
+    name: string
+    email: string
+    skin_type: string
+    age: number
+  }
   skin_condition?: string
   is_emergency?: boolean
-  dermaReport?: { report: DermaReport }
+  dermaReport?: {
+    report: DermaReport
+  }
   message?: string
+}
+
+export interface ValidateFaceResponse {
+  valid: boolean
+  reason?: string
 }
