@@ -15,7 +15,9 @@ module.exports = {
         "2xl": "1400px",
       },
     },
-    extend: {
+    colors: {
+      primary: '#E53935', // vivid red accent
+    },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
         serif: ['Fraunces', 'serif'],
