@@ -6,7 +6,7 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 
-from database import connect_db, close_db, get_db, is_db_available
+from database import connect_db, close_db, get_db, is_db_available, is_db_available
 from aiModel import skin_analysis, validate_face
 from gemini import get_personalized_skin_advice
 from routes import user, skin_analysis as skin_analysis_routes

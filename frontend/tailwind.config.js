@@ -15,12 +15,11 @@ module.exports = {
         "2xl": "1400px",
       },
     },
-    colors: {
-      primary: '#E53935', // vivid red accent
-    },
+    extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        serif: ['Fraunces', 'serif'],
+        sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+        serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        mono: ['"DM Mono"', 'monospace'],
       },
       colors: {
         border: "hsl(var(--border))",
