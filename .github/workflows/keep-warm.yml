@@ -1,0 +1,27 @@
+name: Keep backend warm
+
+# The backend sleeps after ~15 minutes without traffic, and waking it takes up
+# to a minute. Pinging /health on a schedule keeps the instance running so the
+# live demo responds immediately whenever someone opens it.
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub queues scheduled runs under load, so treat this
+    # as "roughly every 10 minutes", not a guarantee.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health
+        run: |
+          # --max-time 90 leaves room for a cold start to finish; a failure
+          # here should not fail the workflow, since the next run retries.
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 \
+            "https://dermasmart-dnuj.onrender.com/health" || echo "000")
+          echo "Backend responded with HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::warning::Backend did not return 200 (got $code)"
+          fi
