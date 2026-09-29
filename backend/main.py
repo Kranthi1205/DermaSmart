@@ -39,6 +39,15 @@ app.include_router(skin_analysis_routes.router, prefix="/api")
 
 
 
+# ── Health Check ───────────────────────────────────────
+@app.get("/health")
+async def health():
+    """Cheap liveness probe. Touches nothing heavy, so it answers the moment
+    the server is up — used by the keep-warm ping and by the frontend to wake
+    a sleeping instance before the user needs it."""
+    return {"status": "ok"}
+
+
 # ── Face Validation Endpoint ───────────────────────────
 @app.post("/validate-face")
 async def validate_face_endpoint(image: UploadFile = File(...)):

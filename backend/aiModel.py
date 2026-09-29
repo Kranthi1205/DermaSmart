@@ -10,9 +10,23 @@ import os
 import cv2
 import numpy as np
 import io
+import threading
 
-# Load Haarcascade for Face Detection
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+# Haarcascade for Face Detection — loaded on first use, not at import, so the
+# web server can bind to its port immediately on a cold start.
+_face_cascade = None
+_face_cascade_lock = threading.Lock()
+
+
+def get_face_cascade():
+    global _face_cascade
+    if _face_cascade is None:
+        with _face_cascade_lock:
+            if _face_cascade is None:
+                _face_cascade = cv2.CascadeClassifier(
+                    cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+                )
+    return _face_cascade
 
 LABELS = [
     'Acne and Rosacea',
@@ -43,24 +57,43 @@ LABELS = [
 # Path to TFLite model
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "tf_model.tflite")
 
-# Load TFLite model and allocate tensors
+# TFLite model — loaded on the first inference, not at import. Allocating the
+# tensors for an 11 MB model at import time delayed the port binding long enough
+# for the host to consider the service dead on a cold start.
 interpreter = None
 input_details = None
 output_details = None
+_model_lock = threading.Lock()
+_model_load_attempted = False
 
-try:
-    if tflite is not None and os.path.exists(MODEL_PATH):
-        interpreter = tflite.Interpreter(model_path=MODEL_PATH)
-        interpreter.allocate_tensors()
-        input_details = interpreter.get_input_details()
-        output_details = interpreter.get_output_details()
-        print("[OK] TFLite model loaded successfully.")
-    elif tflite is None:
-        print("[WARN] TFLite runtime not installed on this host. Local fallback mode enabled.")
-    else:
-        print(f"[WARN] TFLite model not found at {MODEL_PATH}")
-except Exception as e:
-    print(f"[WARN] Could not load TFLite model: {e}")
+
+def get_interpreter():
+    """Load the TFLite model once, on first use. Returns None if unavailable."""
+    global interpreter, input_details, output_details, _model_load_attempted
+
+    if interpreter is not None or _model_load_attempted:
+        return interpreter
+
+    with _model_lock:
+        if interpreter is not None or _model_load_attempted:
+            return interpreter
+        _model_load_attempted = True
+        try:
+            if tflite is None:
+                print("[WARN] TFLite runtime not installed on this host. Local fallback mode enabled.")
+            elif not os.path.exists(MODEL_PATH):
+                print(f"[WARN] TFLite model not found at {MODEL_PATH}")
+            else:
+                loaded = tflite.Interpreter(model_path=MODEL_PATH)
+                loaded.allocate_tensors()
+                input_details = loaded.get_input_details()
+                output_details = loaded.get_output_details()
+                interpreter = loaded
+                print("[OK] TFLite model loaded successfully.")
+        except Exception as e:
+            print(f"[WARN] Could not load TFLite model: {e}")
+
+    return interpreter
 
 
 def validate_face(image_bytes: bytes) -> dict:
@@ -81,7 +114,7 @@ def validate_face(image_bytes: bytes) -> dict:
         # 2. Try Haarcascade face detection
         frame = cv2.cvtColor(img_numpy, cv2.COLOR_RGB2BGR)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
+        faces = get_face_cascade().detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
 
         if len(faces) > 0:
             return {"valid": True}
@@ -111,7 +144,8 @@ def skin_analysis(image_bytes: bytes) -> dict:
     Run skin condition classification on uploaded image bytes using TFLite.
     Returns {"condition": "<label>"} or {"error": "<message>"}
     """
-    if interpreter is None:
+    model = get_interpreter()
+    if model is None:
         print("[WARN] Running skin_analysis in local fallback mode (no TFLite interpreter loaded).")
         return {"condition": "Acne and Rosacea"}
 
@@ -128,7 +162,7 @@ def skin_analysis(image_bytes: bytes) -> dict:
         # 2. Face Detection & Skin Color Segmentation
         frame = cv2.cvtColor(img_numpy, cv2.COLOR_RGB2BGR)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
+        faces = get_face_cascade().detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
         
         if len(faces) == 0:
             # Fallback to Skin Color Segmentation (HSV space)
@@ -147,13 +181,13 @@ def skin_analysis(image_bytes: bytes) -> dict:
         input_data = np.expand_dims(input_data, axis=0)
         
         # Set the tensor to point to the input data to be inferred
-        interpreter.set_tensor(input_details[0]['index'], input_data)
+        model.set_tensor(input_details[0]['index'], input_data)
         
         # Run inference
-        interpreter.invoke()
+        model.invoke()
         
         # Get the result
-        prediction = interpreter.get_tensor(output_details[0]['index'])
+        prediction = model.get_tensor(output_details[0]['index'])
         
         confidence = np.max(prediction[0])
         if confidence < 0.50:
