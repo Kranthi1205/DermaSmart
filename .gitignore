@@ -15,3 +15,9 @@ backend/uploads/
 .idea
 .DS_Store
 *.log
+
+# Personal / local files that must never be committed (contain PII or are scratch)
+Kranthi_DT_Intern.tex
+*.tex
+test_skin_sample.jpg
+jar.txt
