@@ -1,12 +1,28 @@
-fastapi
-uvicorn[standard]
-pillow
-python-dotenv
-tflite-runtime
-numpy<2.0.0
-google-generativeai
-python-multipart
-pydantic
-motor
-pymongo
-opencv-python-headless
+# Pinned to a known-good, mutually compatible set for Python 3.11 on Linux
+# (Render's runtime). Before this, everything except numpy was unpinned, so
+# every deploy pulled the latest release of each package — which is why a build
+# that worked once could later fail when a dependency shipped a breaking
+# version. Pinning makes the build reproducible.
+
+# Web framework / server
+fastapi==0.115.6
+starlette==0.41.3
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+python-multipart==0.0.17
+
+# Imaging / ML (numpy must stay <2 for tflite-runtime and opencv)
+pillow==10.4.0
+numpy==1.26.4
+tflite-runtime==2.14.0
+opencv-python-headless==4.10.0.84
+
+# Google Gemini (0.8.x supports the gemini-2.0-flash model used in gemini.py)
+google-generativeai==0.8.3
+
+# MongoDB (motor 3.5.x pairs with pymongo 4.8.x)
+motor==3.5.1
+pymongo==4.8.0
+
+# Config
+python-dotenv==1.0.1
