@@ -17,11 +17,13 @@ jobs:
     steps:
       - name: Ping /health
         run: |
-          # --max-time 90 leaves room for a cold start to finish; a failure
-          # here should not fail the workflow, since the next run retries.
+          # --max-time 90 leaves room for a cold start to finish. A non-200
+          # fails the run so GitHub flags it — a warning alone let the backend
+          # sit unreachable for days while every run still showed "success".
           code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 \
             "https://dermasmart-dnuj.onrender.com/health" || echo "000")
           echo "Backend responded with HTTP $code"
           if [ "$code" != "200" ]; then
-            echo "::warning::Backend did not return 200 (got $code)"
+            echo "::error::Backend did not return 200 (got $code)"
+            exit 1
           fi
