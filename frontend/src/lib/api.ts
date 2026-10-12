@@ -1,70 +1,75 @@
 import { API_BASE_URL } from "../config"
-import { AnalyzeResponse, ValidateFaceResponse } from "../types/api"
+import { AnalyzeResponse } from "../types/api"
 
-// The backend sleeps when idle and takes up to a minute to come back. A single
-// request that lands during that window fails, which is what produced the
-// "could not connect" screen on a site that was actually fine. So every call
-// retries, and every page load nudges the server awake in the background.
+// The free-tier backend sleeps when idle and can be slow or unreachable while it
+// wakes. Retrying quietly for minutes left people staring at a spinner, so
+// instead: nudge the server awake as soon as the app loads, probe it quickly
+// before uploading anything, and fail fast with a clear message if it is not
+// answering. A real request gets one quick retry for a transient failure.
 
-const RETRY_DELAYS_MS = [2000, 4000, 8000, 12000, 15000]
-const REQUEST_TIMEOUT_MS = 60000
+const HEALTH_TIMEOUT_MS = 10000
+const HEALTH_FRESH_MS = 60000
+const ANALYZE_TIMEOUT_MS = 45000
+const RETRY_DELAY_MS = 1000
+
+export const BACKEND_UNAVAILABLE_MESSAGE =
+  "The analysis server isn't responding right now. It may still be waking up, so please try again in a minute."
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
-  let lastError: unknown
-
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-
-    try {
-      const res = await fetch(url, { ...init, signal: controller.signal })
-
-      // 5xx means the instance is up but not ready yet — worth another try.
-      // A 4xx is a real answer about this request, so return it either way.
-      if (res.status >= 500) {
-        throw new Error(`HTTP error! status: ${res.status}`)
-      }
-      return res
-    } catch (err) {
-      lastError = err
-      if (attempt < RETRY_DELAYS_MS.length) {
-        await sleep(RETRY_DELAYS_MS[attempt])
-      }
-    } finally {
-      clearTimeout(timer)
-    }
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
   }
-
-  throw lastError instanceof Error ? lastError : new Error("Request failed")
 }
+
+let lastHealthyAt = 0
 
 /**
- * Fire-and-forget wake-up call, made as soon as the app loads. By the time the
- * user has framed a photo the instance is already running, so the first real
- * request does not have to wait for a cold start. Failures are ignored on
- * purpose — this is a nudge, not a dependency.
+ * Asks the backend whether it is up, giving up after HEALTH_TIMEOUT_MS. A
+ * timed-out request still reaches the host, which is what wakes a sleeping
+ * instance, so a failed probe also leaves the server warming for the next try.
  */
-export function warmUpBackend(): void {
-  fetch(`${API_BASE_URL}/health`, { method: "GET" }).catch(() => {})
+export async function pingBackend(): Promise<boolean> {
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/health`, { method: "GET" }, HEALTH_TIMEOUT_MS)
+    if (res.ok) {
+      lastHealthyAt = Date.now()
+      return true
+    }
+  } catch {
+    // unreachable or timed out — report as not ready
+  }
+  return false
 }
 
-export async function validateFace(file: File): Promise<ValidateFaceResponse> {
-  const formData = new FormData()
-  formData.append("image", file)
+/** Fire-and-forget wake-up call, made as soon as the app loads. */
+export function warmUpBackend(): void {
+  void pingBackend()
+}
 
-  const res = await fetchWithRetry(`${API_BASE_URL}/validate-face`, {
-    method: "POST",
-    body: formData,
-  })
-
-  if (!res.ok) {
-    throw new Error(`HTTP error! status: ${res.status}`)
+async function postWithRetry(url: string, body: FormData): Promise<Response> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url, { method: "POST", body }, ANALYZE_TIMEOUT_MS)
+      if (res.status < 500) return res
+      lastError = new Error(`HTTP error! status: ${res.status}`)
+    } catch (err) {
+      // A timeout means the server is up but slow; retrying would just double
+      // the wait. Only a quick network-level failure is worth a second try.
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw new Error("The analysis took too long to finish. Please try again.")
+      }
+      lastError = err
+    }
+    if (attempt === 0) await sleep(RETRY_DELAY_MS)
   }
-
-  const data = await res.json()
-  return data
+  throw lastError instanceof Error ? lastError : new Error("Request failed")
 }
 
 interface AnalyzeInput {
@@ -76,6 +81,10 @@ interface AnalyzeInput {
 }
 
 export async function analyzeSkin(input: AnalyzeInput): Promise<AnalyzeResponse> {
+  if (Date.now() - lastHealthyAt > HEALTH_FRESH_MS && !(await pingBackend())) {
+    throw new Error(BACKEND_UNAVAILABLE_MESSAGE)
+  }
+
   const formData = new FormData()
   formData.append("image", input.image)
   formData.append("skin_type", input.skinType)
@@ -85,10 +94,7 @@ export async function analyzeSkin(input: AnalyzeInput): Promise<AnalyzeResponse>
   const email = input.email || `user_${Date.now()}@dermasmart.app`
   formData.append("email", email)
 
-  const res = await fetchWithRetry(`${API_BASE_URL}/userInfo`, {
-    method: "POST",
-    body: formData,
-  })
+  const res = await postWithRetry(`${API_BASE_URL}/userInfo`, formData)
 
   if (!res.ok) {
     throw new Error(`HTTP error! status: ${res.status}`)

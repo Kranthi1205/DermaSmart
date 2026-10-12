@@ -6,7 +6,7 @@ import { AppNav } from '@/components/AppNav'
 import { Footer } from '@/components/Footer'
 import { Stepper } from '@/components/Stepper'
 import { Button } from '@/components/ui/button'
-import { validateFace } from '@/lib/api'
+import { validateImage } from '@/lib/validateImage'
 
 export default function CameraPage() {
   const navigate = useNavigate()
@@ -63,6 +63,12 @@ export default function CameraPage() {
     setValidationError(null)
 
     try {
+      const validation = await validateImage(imageSrc)
+      if (!validation.valid) {
+        setValidationError(validation.reason || "Validation failed. Please ensure your face is clearly visible.")
+        return
+      }
+
       let file: File
       if (selectedFile) {
         file = selectedFile
@@ -72,15 +78,9 @@ export default function CameraPage() {
         file = new File([blob], 'photo.jpg', { type: 'image/jpeg' })
       }
 
-      const validation = await validateFace(file)
-
-      if (validation.valid) {
-        navigate('/form', { state: file })
-      } else {
-        setValidationError(validation.reason || "Validation failed. Please ensure your face is clearly visible.")
-      }
+      navigate('/form', { state: file })
     } catch (err) {
-      setValidationError("Could not connect to validation server. Please check your connection.")
+      setValidationError("Could not read the photo. Please retake it or upload another.")
     } finally {
       setIsValidating(false)
     }
