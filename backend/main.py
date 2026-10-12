@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from database import connect_db, close_db, get_db, is_db_available, is_db_available
 from aiModel import skin_analysis, validate_face
-from gemini import get_personalized_skin_advice
+from gemini import get_personalized_skin_advice, gemini_status
 from routes import user, skin_analysis as skin_analysis_routes
 
 load_dotenv()
@@ -46,6 +46,17 @@ async def health():
     the server is up — used by the keep-warm ping and by the frontend to wake
     a sleeping instance before the user needs it."""
     return {"status": "ok"}
+
+
+@app.get("/health/config")
+async def health_config():
+    """Which integrations are configured. Booleans and model names only —
+    never secret values — so a misconfigured deploy can be diagnosed."""
+    return {
+        **gemini_status(),
+        "mongo_uri_set": bool(os.getenv("MONGO_URI")),
+        "db_connected": is_db_available(),
+    }
 
 
 # ── Face Validation Endpoint ───────────────────────────

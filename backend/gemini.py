@@ -16,10 +16,27 @@ generation_config = {
     "response_mime_type": "text/plain",
 }
 
-model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash",
-    generation_config=generation_config,
-)
+# Models are tried in order until one answers. Google retires older Gemini
+# models, and a single hard-coded name turned that into a silent permanent
+# fallback to the generic report. GEMINI_MODEL, if set, is tried first.
+MODEL_CANDIDATES = [
+    m for m in dict.fromkeys(
+        [os.getenv("GEMINI_MODEL"), "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    ) if m
+]
+
+_models = {}
+
+
+def _get_model(name: str):
+    if name not in _models:
+        _models[name] = genai.GenerativeModel(model_name=name, generation_config=generation_config)
+    return _models[name]
+
+
+def gemini_status() -> dict:
+    """Configuration facts for /health/config. Never includes secret values."""
+    return {"gemini_key_set": bool(os.getenv("GEMINI_API_KEY")), "gemini_models": MODEL_CANDIDATES}
 
 
 def get_personalized_skin_advice(
@@ -75,27 +92,28 @@ Provide 3–4 morning steps, 3–4 evening steps, 4 diet tips, and 3–5 product
 Respond with ONLY the JSON object.
 """
 
-    try:
-        chat = model.start_chat(history=[])
-        response = chat.send_message(prompt)
-        raw = response.text.strip()
+    raw = ""
+    for name in MODEL_CANDIDATES:
+        try:
+            response = _get_model(name).generate_content(prompt)
+            raw = response.text.strip()
 
-        # Strip markdown code fences if present
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
+            # Strip markdown code fences if present
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+                raw = raw.strip()
 
-        return json.loads(raw)
+            return json.loads(raw)
 
-    except json.JSONDecodeError as e:
-        print(f"Gemini JSON parse error: {e}\nRaw response: {response.text}")
-        return _default_report(skin_condition, skin_type)
+        except json.JSONDecodeError as e:
+            print(f"[WARN] Gemini ({name}) returned invalid JSON: {e} | raw: {raw[:500]}")
+        except Exception as e:
+            print(f"[WARN] Gemini ({name}) failed: {type(e).__name__}: {e}")
 
-    except Exception as e:
-        print(f"Gemini error: {e}")
-        return _default_report(skin_condition, skin_type)
+    print("[WARN] All Gemini models failed — returning the default report.")
+    return _default_report(skin_condition, skin_type)
 
 
 def _default_report(skin_condition: str, skin_type: str) -> dict:
