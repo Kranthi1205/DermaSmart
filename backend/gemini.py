@@ -18,12 +18,16 @@ generation_config = {
 
 # Models are tried in order until one answers. Google retires older Gemini
 # models, and a single hard-coded name turned that into a silent permanent
-# fallback to the generic report. GEMINI_MODEL, if set, is tried first.
+# fallback to the generic report. GEMINI_MODEL, if set, is tried first; the
+# non-"thinking" model comes next because it answers fastest.
 MODEL_CANDIDATES = [
     m for m in dict.fromkeys(
-        [os.getenv("GEMINI_MODEL"), "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        [os.getenv("GEMINI_MODEL"), "gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
     ) if m
 ]
+
+# Per-call cap so a slow Gemini response cannot hold the request open.
+REQUEST_TIMEOUT_S = 20
 
 _models = {}
 
@@ -92,10 +96,19 @@ Provide 3–4 morning steps, 3–4 evening steps, 4 diet tips, and 3–5 product
 Respond with ONLY the JSON object.
 """
 
+    # Without a key the client searches for Google credentials and stalls for
+    # ~12s per call before failing. Skip Gemini outright instead of making the
+    # user wait for an answer that cannot come.
+    if not os.getenv("GEMINI_API_KEY"):
+        print("[WARN] GEMINI_API_KEY is not set — returning the default report.")
+        return _default_report(skin_condition, skin_type)
+
     raw = ""
     for name in MODEL_CANDIDATES:
         try:
-            response = _get_model(name).generate_content(prompt)
+            response = _get_model(name).generate_content(
+                prompt, request_options={"timeout": REQUEST_TIMEOUT_S}
+            )
             raw = response.text.strip()
 
             # Strip markdown code fences if present
@@ -111,8 +124,12 @@ Respond with ONLY the JSON object.
             print(f"[WARN] Gemini ({name}) returned invalid JSON: {e} | raw: {raw[:500]}")
         except Exception as e:
             print(f"[WARN] Gemini ({name}) failed: {type(e).__name__}: {e}")
+            # Only a missing/retired model is worth trying another model for.
+            # Bad key, quota, or a timeout would just repeat on the next one.
+            if type(e).__name__ != "NotFound" and "not found" not in str(e).lower():
+                break
 
-    print("[WARN] All Gemini models failed — returning the default report.")
+    print("[WARN] Gemini did not produce a report — returning the default report.")
     return _default_report(skin_condition, skin_type)
 
 
